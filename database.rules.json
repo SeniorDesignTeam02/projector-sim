@@ -1,0 +1,8 @@
+{
+  "rules": {
+    "scenes": {
+      ".read": true,
+      ".write": true
+    }
+  }
+}
