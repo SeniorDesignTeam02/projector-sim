@@ -2,7 +2,7 @@
 
 A browser simulator for turning the team's 720p projector into a short-throw projector that lights a kitchen countertop, by trying different projector positions and externally placed mirrors.
 
-Live at https://projector-simulation.web.app. There is no login: anyone with the link can read and change scenes.
+Live at https://sim.nateobrien.dev and https://projector-simulation.web.app. There is no login: anyone with the link can read and change scenes.
 
 ## Run
 
