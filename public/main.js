@@ -119,6 +119,7 @@ function onScenes(snapshot) {
         keystoneH: 0,
         flipH: false,
         flipV: false,
+        picture: "pattern",
         bodyW: 22.5,
         bodyH: 10.9,
         bodyD: 18.6,
@@ -178,7 +179,11 @@ function render() {
     return;
   }
   const scene = scenes[id];
-  scene.projector = { ...focusDefaults, ...scene.projector };
+  scene.projector = {
+    ...focusDefaults,
+    picture: "pattern",
+    ...scene.projector,
+  };
   const mirrors = Object.entries(scene.mirrors ?? {});
   if (selected !== "room" && !scene.mirrors?.[selected]) selected = "projector";
   const object = scene[selected] ?? scene.mirrors[selected];
@@ -205,6 +210,7 @@ function render() {
     }),
   );
   $("deleteMirror").disabled = selected === "projector" || selected === "room";
+  $("picture").value = scene.projector.picture;
 
   const kind = object.type ?? selected;
   fill($("fields"), `${selected} ${kind}`, () =>
@@ -295,6 +301,8 @@ $("addFlat").onclick = () => onAddMirror({ type: "flat" });
 $("addSpherical").onclick = () =>
   onAddMirror({ type: "spherical", radius: 50 });
 $("deleteMirror").onclick = () => remove(sceneRef(selectedPath()));
+$("picture").onchange = (event) =>
+  set(sceneRef("projector/picture"), event.target.value);
 $("move").onclick = () => setGizmoMode("translate");
 $("rotate").onclick = () => setGizmoMode("rotate");
 $("view3d").onclick = () => setCamera(false);

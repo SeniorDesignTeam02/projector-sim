@@ -21,12 +21,15 @@ Do not reopen these without being asked.
 - Focus blur is geometric only: light leaves from across a lens opening of a set diameter and meets at the focus distance. Not included, by choice: lens flaws, diffraction, and any limit on how near or far the lens can focus.
 - Auto focus is on by default and picks the focus distance with the least overall blur over the picture on the counter. Unticking it uses the typed focus distance.
 - Blur must show both in the picture and as numbers, in panel pixels and in mm.
+- The projected picture is picked from a built-in list in a dropdown and saved in the scene, so it changes for everyone who has that scene open. The list is the test pattern plus the surface's recipe list (saved) and recipe view (default), each in dark and light. Not included, by choice: the surface's other nine states and the mobile screens.
+- The surface screens are PNG files made from the reference HTML in `../docs` by `render-screens.sh`. The 1920 x 1080 design is drawn sharp at two-thirds scale straight onto the 1280 x 720 panel, as if the Pi outputs 720p. It is not rendered at 1080p and shrunk.
 
 ## Run and deploy
 
 - Run locally: `python3 -m http.server -d public`, then open `http://localhost:8000`. It needs `databaseUrl` set in `public/config.js`.
 - Deploy: `npx firebase-tools deploy` (pushes `public/` to Hosting and `database.rules.json` to the database). One-time: `npx firebase-tools login`, and a `.firebaserc` naming the project.
 - Format: `npx prettier@3 --write "public/*.js" public/index.html`.
+- Re-render the surface screens: `./render-screens.sh`. It needs Google Chrome at its macOS path, the `docs` repository beside this one, and a network connection for the Google Fonts the pages load. Now and then Google Fonts serves a differently built font file that moves letters by a fraction of a pixel, so a re-render can change the PNG files with nothing visibly different.
 
 ### Firebase setup state
 
@@ -37,11 +40,13 @@ Live at `https://projector-simulation.web.app`. The Firebase project is `project
 - `public/index.html`: page skeleton, styles, and the import map that pins three.js and the Firebase SDK versions.
 - `public/config.js`: the database URL.
 - `public/main.js`: Firebase subscription, scene list, the side panel (field definitions, object list, results text). The database is the single source of truth: every edit is written straight to it and the `onValue` callback redraws everything, for local and remote edits alike.
-- `public/view.js`: the three.js view: objects, drag handles, click-to-select, camera, the two render passes, and the shader change that blurs the picture.
+- `public/view.js`: the three.js view: objects, drag handles, click-to-select, camera, the chosen picture, the two render passes, and the shader change that blurs the picture.
 - `public/light.js`: traces the grid of rays and produces the lit triangles, beam lines, and the brightness, focus and blur numbers.
 - `public/trace.js`: one ray against the mirrors, counter and wall.
 - `public/keystone.js`: where digital keystone puts the picture inside the panel.
 - `public/pattern.js`: the built-in test picture.
+- `public/screens/`: the surface screens the projector can show, as 1280 x 720 PNG files. Made by `render-screens.sh`, not by hand.
+- `render-screens.sh`: draws those PNG files from the reference HTML in `../docs`. To add a screen, add a `render` line there and an `<option>` with the same name to the dropdown in `public/index.html`.
 - `firebase.json`, `database.rules.json`: Hosting and database rules.
 
 ## How the model works
@@ -59,7 +64,8 @@ Live at `https://projector-simulation.web.app`. The Firebase project is `project
 - Blur changes nothing else: brightness numbers ignore it, a pixel whose spot straddles a mirror edge is not dimmed, and light does not spill past the edge of the lit patch.
 - Spherical mirrors are a sphere of the given radius with its apex at the mirror's position, cut to the width x height rectangle. Positive radius is convex.
 - Digital keystone: the H and V angles describe a screen tilted relative to the lens axis. The picture is the largest 16:9 rectangle inside the panel's footprint on that screen, mapped back into the panel as a quad. V = +20 exactly corrects a projector pitched 20 degrees up from perpendicular to its surface; H = +20 one yawed 20 degrees left.
-- Pixel loss is real, not estimated: the test picture is first rendered into a 1280 x 720 target through the keystone quad (black outside it), and that target is what gets projected. Flips mirror the picture inside the quad and cost nothing.
+- Pixel loss is real, not estimated: the chosen picture is first rendered into a 1280 x 720 target through the keystone quad (black outside it), and that target is what gets projected. Flips mirror the picture inside the quad and cost nothing.
+- The chosen picture only changes what is drawn. The brightness, focus and blur numbers are the same for every picture and describe a panel showing full white.
 
 ## Data
 
@@ -67,14 +73,16 @@ Everything is under `scenes/<id>` in the database, where `<id>` is also the URL 
 
 ```
 name
-projector: x y z yaw pitch roll throwRatio offset lumens aperture focus autoFocus keystoneV keystoneH flipH flipV bodyW bodyH bodyD
+projector: x y z yaw pitch roll throwRatio offset lumens aperture focus autoFocus keystoneV keystoneH flipH flipV picture bodyW bodyH bodyD
 room:      counterW counterD wallOn wallH whiteLux
 mirrors/<id>: type ("flat" | "spherical") x y z yaw pitch roll width height reflectivity [radius]
 ```
 
 The database drops empty objects, so a scene with no mirrors has no `mirrors` key.
 
-Scenes saved before focus was modelled have no `aperture`, `focus` or `autoFocus`. `render` in `public/main.js` fills them in from `focusDefaults` when a scene is read and writes nothing.
+`picture` is `pattern` for the test pattern, or the name of a PNG file in `public/screens/`: `list-dark`, `list-light`, `recipe-dark` or `recipe-light`.
+
+Scenes saved before focus was modelled have no `aperture`, `focus` or `autoFocus`. `render` in `public/main.js` fills them in from `focusDefaults` when a scene is read and writes nothing. Scenes saved before the picture could be chosen have no `picture`, and `render` fills in `pattern` the same way.
 
 ## Projector: Emotn C1 (Dangbei)
 

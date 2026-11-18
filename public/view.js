@@ -18,7 +18,7 @@ orbit.zoomToCursor = true;
 const gizmo = new TransformControls(camera, canvas);
 world.add(gizmo.getHelper());
 
-// What the projector's 1280x720 panel shows: the test picture squeezed into
+// What the projector's 1280x720 panel shows: the chosen picture squeezed into
 // the keystone quad, black elsewhere. Rendering it at panel resolution is what
 // makes digital keystone cost real pixels.
 const panel = new THREE.WebGLRenderTarget(1280, 720, {
@@ -30,12 +30,13 @@ const panel = new THREE.WebGLRenderTarget(1280, 720, {
 const panelScene = new THREE.Scene();
 panelScene.background = new THREE.Color(0x000000);
 const panelCamera = new THREE.OrthographicCamera(0, 1, 1, 0, -1, 1);
-const pattern = new THREE.CanvasTexture(drawPattern());
-pattern.colorSpace = THREE.SRGBColorSpace;
-pattern.anisotropy = renderer.capabilities.getMaxAnisotropy();
+const pictures = {};
 const picture = new THREE.Mesh(
   new THREE.PlaneGeometry(1, 1).translate(0.5, 0.5, 0),
-  new THREE.MeshBasicMaterial({ map: pattern, side: THREE.DoubleSide }),
+  new THREE.MeshBasicMaterial({
+    map: getPicture("pattern"),
+    side: THREE.DoubleSide,
+  }),
 );
 picture.matrixAutoUpdate = false;
 picture.frustumCulled = false;
@@ -225,6 +226,7 @@ export function showScene(scene, selected) {
   if (target) gizmo.attach(target);
   else gizmo.detach();
 
+  picture.material.map = getPicture(projector.picture);
   const cast = castLight(scene);
   setGeometry(counterLight, cast.light.counter);
   setGeometry(wallLight, cast.light.wall);
@@ -249,6 +251,20 @@ export function setCamera(isTop) {
   camera.position.set(...(isTop ? [0, 260, 0.01] : [140, 130, 190]));
   orbit.target.set(0, isTop ? 0 : 20, 0);
   orbit.update();
+}
+
+// The picture called `name`: the drawn test pattern, or a surface screen from
+// `screens/`, which is fetched the first time it is chosen.
+function getPicture(name) {
+  if (pictures[name]) return pictures[name];
+  const texture =
+    name === "pattern"
+      ? new THREE.CanvasTexture(drawPattern())
+      : new THREE.TextureLoader().load(`screens/${name}.png`);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  pictures[name] = texture;
+  return texture;
 }
 
 function addGroup(id) {
