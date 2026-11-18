@@ -73,6 +73,7 @@ const makeLight = (clippingPlanes) =>
       depthWrite: false,
       side: THREE.DoubleSide,
       clippingPlanes,
+      onBeforeCompile: blurPicture,
     }),
   );
 const counterLight = makeLight([...sides, ...ends]);
@@ -292,7 +293,43 @@ function setGeometry(mesh, data) {
   for (const [name, values] of Object.entries(data)) {
     mesh.geometry.setAttribute(
       name,
-      new THREE.Float32BufferAttribute(values, name === "uv" ? 2 : 3),
+      new THREE.Float32BufferAttribute(values, { uv: 2, blur: 4 }[name] ?? 3),
     );
   }
+}
+
+// Makes a lit patch show the average of the panel over its blur spot instead
+// of one point of it: 32 samples spread evenly over the ellipse whose two
+// panel uv axes are in `blur`. Each sample reads a mip level as coarse as the
+// gap between samples, so a wide spot smears rather than showing 32 copies.
+function blurPicture(shader) {
+  shader.vertexShader = shader.vertexShader.replace(
+    "void main() {",
+    `attribute vec4 blur;
+    varying vec4 vBlur;
+    void main() {
+      vBlur = blur;`,
+  );
+  shader.fragmentShader = shader.fragmentShader
+    .replace(
+      "void main() {",
+      `varying vec4 vBlur;
+      void main() {`,
+    )
+    .replace(
+      "#include <map_fragment>",
+      `vec2 across = dFdx(vMapUv) * vec2(1280.0, 720.0);
+      vec2 down = dFdy(vMapUv) * vec2(1280.0, 720.0);
+      float gap =
+        3.1416 * abs(vBlur.x * vBlur.w - vBlur.y * vBlur.z) * 1280.0 * 720.0 / 32.0;
+      float level =
+        0.5 * log2(max(max(dot(across, across), dot(down, down)), gap));
+      vec4 seen = vec4(0.0);
+      for (int i = 0; i < 32; i++) {
+        float turn = float(i) * 2.39996;
+        vec2 at = sqrt((float(i) + 0.5) / 32.0) * vec2(cos(turn), sin(turn));
+        seen += textureLod(map, vMapUv + vBlur.xy * at.x + vBlur.zw * at.y, level);
+      }
+      diffuseColor *= seen / 32.0;`,
+    );
 }

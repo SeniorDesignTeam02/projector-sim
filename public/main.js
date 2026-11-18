@@ -51,6 +51,13 @@ const fields = {
     ],
     ["lumens", "Brightness (ANSI lumens)", { min: 0 }],
     [
+      "aperture",
+      "Lens opening diameter (cm), NOT MEASURED YET: 0 = no blur",
+      { min: 0 },
+    ],
+    ["autoFocus", "Auto focus: least overall blur on the counter"],
+    ["focus", "Focus distance (cm), used when auto focus is off", { min: 1 }],
+    [
       "keystoneV",
       "Digital keystone V (°)",
       { min: -45, max: 45, slider: true },
@@ -80,6 +87,9 @@ const fields = {
   ],
 };
 
+// scenes saved before focus was modelled have none of these
+const focusDefaults = { aperture: 3, focus: 80, autoFocus: true };
+
 let scenes = {};
 let selected = "projector";
 
@@ -104,6 +114,7 @@ function onScenes(snapshot) {
         throwRatio: 1.36,
         offset: 0,
         lumens: 130,
+        ...focusDefaults,
         keystoneV: 0,
         keystoneH: 0,
         flipH: false,
@@ -167,6 +178,7 @@ function render() {
     return;
   }
   const scene = scenes[id];
+  scene.projector = { ...focusDefaults, ...scene.projector };
   const mirrors = Object.entries(scene.mirrors ?? {});
   if (selected !== "room" && !scene.mirrors?.[selected]) selected = "projector";
   const object = scene[selected] ?? scene.mirrors[selected];
@@ -246,6 +258,10 @@ function render() {
       : ["Edges: a corner is off the counter"]),
     `Panel pixels used ${n(stats.used * 100)}%`,
     `  ≈ ${Math.round(1280 * scale)} × ${Math.round(720 * scale)} of 1280 × 720`,
+    `Focus distance ${stats.focus === Infinity ? "∞" : n(stats.focus)} cm${scene.projector.autoFocus ? " (auto)" : ""}`,
+    "Blur spot, longest width:",
+    `  panel px  min ${n(stats.blurPx[0])}  avg ${n(stats.blurPx[1])}  max ${n(stats.blurPx[2])}`,
+    `  mm        min ${n(stats.blurMm[0])}  avg ${n(stats.blurMm[1])}  max ${n(stats.blurMm[2])}`,
   ].join("\n");
 }
 
